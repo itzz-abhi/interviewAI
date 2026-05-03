@@ -1,6 +1,17 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 
+/** When frontend and API are on different sites (e.g. Vercel + Render), set CROSS_ORIGIN_COOKIES=true */
+const cookieFlags = () => {
+    const crossOrigin = process.env.CROSS_ORIGIN_COOKIES === "true";
+    const secure = crossOrigin || process.env.NODE_ENV === "production";
+    return {
+        httpOnly: true,
+        sameSite: crossOrigin ? "none" : "lax",
+        secure,
+    };
+};
+
 export const googleAuth = async (req, res) => {
     try {
         const { name, email, image } = req.body;
@@ -29,9 +40,8 @@ export const googleAuth = async (req, res) => {
         );
         
         res.cookie("token", token, {
-            httpOnly: true,
+            ...cookieFlags(),
             maxAge: 7 * 24 * 60 * 60 * 1000,
-            sameSite: "lax"
         });
         
         res.json({ user, isNewUser });
@@ -42,7 +52,7 @@ export const googleAuth = async (req, res) => {
 
 export const logout = async (req, res) => {
     try {
-        res.clearCookie("token");
+        res.clearCookie("token", cookieFlags());
         res.json({ message: "Logged out!" });
     } catch (error) {
         res.status(500).json({ message: error.message });

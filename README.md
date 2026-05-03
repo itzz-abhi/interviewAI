@@ -47,6 +47,8 @@ InterviewAI_Project/
 | `JWT_SECRET` | Secret for signing JWT cookies |
 | `GROQ_API_KEY` | Groq API key |
 | `CLIENT_URL` | Frontend origin for CORS (e.g. `http://localhost:5173`) |
+| `CROSS_ORIGIN_COOKIES` | Set to `true` when the SPA and API use different hosts (e.g. Vercel + Render). Uses `SameSite=None` + `Secure` so JWT cookies work. Omit or `false` for local dev. |
+| `NODE_ENV` | Use `production` on hosted APIs (sets secure cookies when not using cross-origin flag alone). |
 
 ### Frontend (`interviewai-frontend/.env`)
 
@@ -131,6 +133,75 @@ For authenticated routes, the browser must send cookies (`credentials: 'include'
 | Frontend | `npm run dev` | Vite dev server |
 | Frontend | `npm run build` | Production build |
 | Frontend | `npm run lint` | ESLint |
+
+## Deployment
+
+Typical setup: **MongoDB Atlas** (database) + **Render** or **Railway** (Node API) + **Vercel** or **Netlify** (static frontend). All URLs must use **HTTPS** in production.
+
+### 1. MongoDB Atlas
+
+1. Create a cluster at [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+2. Database Access: create a user; Network Access: allow `0.0.0.0/0` (or your host’s IPs) for a quick start.
+3. Connect → Drivers → copy the URI and set `MONGODB_URI` on the backend (replace `<password>`).
+
+### 2. Backend (example: Render Web Service)
+
+1. Push this repo to GitHub.
+2. [Render](https://render.com) → **New +** → **Web Service** → connect the repo.
+3. **Root Directory:** `interviewai-backend`
+4. **Build Command:** `npm install`
+5. **Start Command:** `npm start`
+6. **Environment** (example):
+
+   | Key | Value |
+   |-----|--------|
+   | `MONGODB_URI` | Atlas connection string |
+   | `PORT` | Render sets `PORT` automatically — use `process.env.PORT` (already in code). |
+   | `JWT_SECRET` | Long random string |
+   | `GROQ_API_KEY` | From Groq |
+   | `CLIENT_URL` | Your **frontend** URL, e.g. `https://your-app.vercel.app` (no trailing slash) |
+   | `NODE_ENV` | `production` |
+   | `CROSS_ORIGIN_COOKIES` | `true` if frontend is on a **different domain** than the API (e.g. Vercel + Render) |
+
+7. Deploy and copy the service URL, e.g. `https://interviewai-api.onrender.com`.
+
+**Note:** The coding “run/submit” features expect compilers/runtimes (`node`, `python`, `javac`, `gcc`, etc.) on the server. Default Render images may not include all of them; only **Node** is guaranteed. For full judge support you’d need a custom Docker image or a dedicated runner.
+
+**Cold starts:** Free Render tiers spin down after idle; first request can be slow.
+
+### 3. Frontend (example: Vercel)
+
+1. [Vercel](https://vercel.com) → **Add New** → **Project** → import the repo.
+2. **Root Directory:** `interviewai-frontend`
+3. **Framework Preset:** Vite  
+4. **Environment Variables:**
+
+   | Key | Value |
+   |-----|--------|
+   | `VITE_SERVER_URL` | Backend URL, e.g. `https://interviewai-api.onrender.com` (no `/api` suffix) |
+   | `VITE_FIREBASE_APIKEY` | Same as local Firebase Web API key |
+
+5. Deploy and open the production URL.
+
+### 4. Firebase (Google sign-in)
+
+In [Firebase Console](https://console.firebase.google.com) → **Authentication** → **Settings** → **Authorized domains**, add:
+
+- Your Vercel domain (e.g. `your-app.vercel.app`)
+- Custom domain if you use one
+
+### 5. CORS and cookies checklist
+
+- `CLIENT_URL` on the server must **exactly** match the browser origin of the SPA (scheme + host + port if any).
+- If frontend and backend are on **different** registrable domains, set `CROSS_ORIGIN_COOKIES=true` on the API (see table above).
+- All interview/auth Axios calls already use `withCredentials: true` where needed.
+
+### 6. After deploy
+
+```bash
+# Rebuild frontend if you change VITE_* only — trigger redeploy on Vercel
+# Backend: change env on Render → Manual Deploy
+```
 
 ## License
 
